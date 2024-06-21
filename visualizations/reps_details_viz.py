@@ -63,7 +63,7 @@ def analyze_sales_rep_efficiency(df_pd):
         title_font=dict(size=20)  # Increase title font size 
     )
 
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("""
     ## Visit Distribution: Understanding Role Contributions
@@ -78,7 +78,7 @@ def plot_active_customers_vs_visits(df_pd):
     fig = px.scatter(sales_data, x="Active customers", y="Total visits", color="Name", 
                      trendline="ols", title="Active Customers vs. Total Visits (Sales Reps)")
     fig.update_layout(xaxis_title="Active Customers", yaxis_title="Total Visits")
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, use_container_width=True)
     st.markdown("""
 ## Customer Engagement vs. Sales Activity
 
@@ -88,11 +88,13 @@ This scatter plot explores the relationship between the number of active custome
 def plot_travel_efficiency_line(df_pd):
     """Plots a scatter plot to visualize travel efficiency."""
 
+    # Copy the dataframe to avoid modifying the original data
     df_pd = df_pd.copy()
 
     # Extract numeric part from "Total travel distance"
-    df_pd["Total travel distance"] = df_pd["Total travel distance"].str.extract('(\d+\.?\d*)').astype(float)
+    df_pd["Total travel distance"] = df_pd["Total travel distance"].str.extract(r'(\d+\.?\d*)').astype(float)
 
+    # Create the scatter plot
     fig = px.scatter(
         df_pd,
         x="Total travel distance",
@@ -101,21 +103,29 @@ def plot_travel_efficiency_line(df_pd):
         title="Travel Efficiency: Distance vs. Visits",
         trendline="ols",  # Add a trendline
         template="plotly_white",
-        color_discrete_sequence=px.colors.qualitative.Set1
+        color_discrete_sequence=px.colors.qualitative.Set1,
+        hover_data={"Name": True, "Role": True}  # Add Name and Role to hover label
     )
 
+    # Update layout for better readability
     fig.update_layout(
         xaxis_title="Total Travel Distance (miles)",
         yaxis_title="Total Visits",
-        legend=dict(title="Role", y=0.95, x=0.85)
+        title_font_size=20,
+        legend=dict(title="Role", y=1, x=1, xanchor='right', yanchor='top'),
+        margin=dict(l=40, r=40, b=40, t=40)
     )
 
-    st.plotly_chart(fig)
+    # Display the plot in Streamlit
+    st.plotly_chart(fig, use_container_width=True)
 
+    # Provide a shorter markdown explanation
     st.markdown("""
-    ## Travel Efficiency: Distance vs. Visits 
+    ## Travel Efficiency: Distance vs. Visits
 
-    This scatter plot helps you understand the relationship between the distance traveled and the number of visits made by your sales team. Use it to identify trends, potential outliers, and opportunities to optimize travel routes for greater efficiency. 
+    This scatter plot shows the relationship between total travel distance and the number of visits. Each point represents a team member, colored by their role, with a trendline indicating overall efficiency.
+
+    Use this plot to identify trends, outliers, and opportunities to optimize travel routes.
     """)
 
 #Pure work time per Employee
@@ -161,7 +171,8 @@ def analyze_work_hours_and_distance(df_pd):
                      color_discrete_sequence=px.colors.qualitative.Light24)
         fig.update_traces(texttemplate='%{text:.1f}h', textposition='outside')
         fig.update_layout(xaxis_tickangle=45, yaxis_title="Hours", xaxis_title="Employee")
-        st.plotly_chart(fig)
+        fig.update_layout(height=500)
+        st.plotly_chart(fig, use_container_width=True, height=500)
 
     with tab2:
         st.subheader("Top 10 Employees by Travel Distance")
@@ -172,7 +183,8 @@ def analyze_work_hours_and_distance(df_pd):
                      color_discrete_sequence=px.colors.qualitative.Light24)
         fig.update_traces(texttemplate='%{text:.1f} mi', textposition='outside')
         fig.update_layout(xaxis_tickangle=45, yaxis_title="Miles", xaxis_title="Employee")
-        st.plotly_chart(fig)
+        fig.update_layout(height=500)
+        st.plotly_chart(fig, use_container_width=True, height=500)
 
     st.markdown("""
     ## Workload and Travel: Insights into Top Performers
@@ -182,8 +194,12 @@ def analyze_work_hours_and_distance(df_pd):
 
 #Total Visits vs. Total Photos Taken
 def plot_visits_vs_photos_separate(df_pd):
+    """Plots separate scatter plots for visits vs. photos for each role."""
+
+    # Get unique roles
     roles = df_pd['Role'].unique()
 
+    # Create tabs for each role
     tabs = st.tabs([role for role in roles]) 
 
     for i, role in enumerate(roles):
@@ -197,42 +213,52 @@ def plot_visits_vs_photos_separate(df_pd):
                 title=f"Visits vs. Photos ({role})",
                 template="plotly_white",
                 trendline="ols",
-                color_discrete_sequence=px.colors.qualitative.Light24  
+                color_discrete_sequence=px.colors.qualitative.Vivid,
+                hover_data={"Name": True}  # Add Name to hover label
             )
             fig.update_layout(
                 xaxis_title="Total Visits", 
                 yaxis_title="Total Photos",
+                height=500  # Set the height of the plot
             )
-            st.plotly_chart(fig)
+            st.plotly_chart(fig, use_container_width=True)
 
+    # Provide a brief markdown explanation
     st.markdown("""
     ## Visits vs. Photos: Exploring the Relationship
 
-    These scatter plots analyze the relationship between total visits and the number of photos taken by sales representatives for each role. This visualization can reveal insights into engagement levels, photo-taking patterns, and potential areas for improving data collection or performance. 
+    These scatter plots analyze the relationship between total visits and the number of photos taken by team members for each role. This visualization helps to understand engagement levels and photo-taking patterns.
     """)
 
 #Exploring Customer Distribution Across Sales Representatives
-import streamlit as st
-import plotly.express as px
-import pandas as pd
-
 def analyze_customer_distribution(df_pd):
+    # Filter sales data
     sales_data = df_pd[df_pd["Role"] == "SALES"].copy()
 
-    st.subheader("Distribution of Assigned Customers")
-    fig = px.box(
-        sales_data, 
-        x="Assigned customers", 
-        points="all", 
-        title="Assigned Customers per Sales Rep",
+    # Group by sales representative and sum the number of assigned customers
+    customer_distribution = sales_data.groupby("Name")["Assigned customers"].sum().reset_index()
+
+    # Create a bar plot to visualize the distribution of assigned customers
+    fig = px.bar(
+        customer_distribution,
+        x="Name",
+        y="Assigned customers",
+        title="Assigned Customers per Sales Representative",
         template="plotly_white",
-        color_discrete_sequence=px.colors.qualitative.Light24 
+        color="Assigned customers",
+        color_continuous_scale=px.colors.sequential.Viridis
     )
-    fig.update_layout(xaxis_title="Number of Assigned Customers")
-    st.plotly_chart(fig)
+    fig.update_layout(
+        xaxis_title="Sales Representative",
+        yaxis_title="Number of Assigned Customers",
+        title_font_size=20,
+        xaxis_tickangle=-45
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
+    # Detailed markdown explanation
     st.markdown("""
-    ## Customer Allocation: Understanding the Distribution
+    ## Understanding Customer Allocation
 
-    This box plot reveals the distribution of assigned customers per sales representative, providing insights into potential workload imbalances or variations in customer assignments. Analyzing this distribution can guide decisions related to optimizing sales territories and ensuring a more balanced workload across your team.
+    The bar plot above shows the number of assigned customers per sales representative. This visualization helps to identify potential imbalances in workload or variations in customer assignments. By analyzing this distribution, you can make informed decisions to optimize sales territories and ensure a more balanced workload across your sales team.
     """)

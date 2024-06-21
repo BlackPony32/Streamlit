@@ -17,6 +17,9 @@ from langchain.agents.agent_types import AgentType
 
 from pandasai.llm.openai import OpenAI
 from pandasai import SmartDataframe, Agent
+import requests
+from fastapi import Response
+import logging
 
 from visualizations import (
     third_party_sales_viz, order_sales_summary_viz, best_sellers_viz,
@@ -38,12 +41,25 @@ if not os.path.exists(CHARTS_PATH):
 file_name = get_file_name()
 last_uploaded_file_path = os.path.join(UPLOAD_DIR, file_name)
 
-def directory_contains_png_files(directory_path):
-    files = os.listdir(directory_path)
-    for file in files:
-        if file.endswith(".png"):
-            return True
-    return False
+
+def cleanup_uploads_folder(upload_dir: str):
+    try:
+        for filename in os.listdir(upload_dir):
+            file_path = os.path.join(upload_dir, filename)
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+    except Exception as e:
+        logging.error(f"Error cleaning up uploads folder: {str(e)}")
+
+def convert_excel_to_csv(excel_file_path):
+    try:
+        df = pd.read_excel(excel_file_path)
+        csv_file_path = os.path.splitext(excel_file_path)[0] + ".csv"
+        df.to_csv(csv_file_path, index=False)
+        os.remove(excel_file_path)
+        return csv_file_path
+    except Exception as e:
+        raise ValueError(f"Error converting Excel to CSV: {str(e)}")
 
 async def read_csv(file_path):
     loop = asyncio.get_event_loop()
@@ -91,14 +107,60 @@ def chat_with_agent(input_string, file_path):
     except Exception as e:
         raise ValueError(f"An error occurred: {str(e)}")
 
+def fetch_file_info():
+    try:
+        response = requests.get("https://fastapi-2y3qx63wua-uc.a.run.app/get_file_info/")
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        data = response.json()
+        return data
+    except requests.RequestException as e:
+        st.error(f"Error fetching file info: {e}")
+        return None
+
+
+def ready_file():
+    cleanup_uploads_folder(UPLOAD_DIR)
+    result = fetch_file_info()
+    url = result.get("url")
+    file_name = result.get("file_name")
+
+    
+
+    report_type_filenames = {
+        'CUSTOMER_DETAILS': 'customer_details.xlsx',
+        'TOP_CUSTOMERS': 'top_customers.xlsx',
+        'ORDER_SALES_SUMMARY': 'order_sales_summary.xlsx',
+        'THIRD_PARTY_SALES_SUMMARY': 'third_party_sales_summary.xlsx',
+        'CURRENT_INVENTORY': 'current_inventory.xlsx',
+        'LOW_STOCK_INVENTORY': 'low_stock_inventory.xlsx',
+        'BEST_SELLERS': 'best_sellers.xlsx',
+        'SKU_NOT_ORDERED': 'sku_not_ordered.xlsx',
+        'REP_DETAILS': 'rep_details.xlsx',
+        'REPS_SUMMARY': 'reps_summary.xlsx',
+    }
+    response = requests.get(url, stream=True)
+    response.raise_for_status()
+    friendly_filename = report_type_filenames.get(file_name, 'unknown.xlsx')
+    excel_file_path = os.path.join(UPLOAD_DIR, friendly_filename)
+    with open(excel_file_path, "wb") as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+    
+    convert_excel_to_csv(excel_file_path)
+
 
 async def main_viz():
-    st.title("Report Analysis")
+    ready_file()
 
+    st.title("Report Analysis")
+    
     if os.path.exists(last_uploaded_file_path):
+        
         df = pd.read_csv(last_uploaded_file_path)
-        col1, col2 = st.columns([1, 1])
         file_type = identify_file(df)
+        
+        
+        col1, col2 = st.columns([1, 1])
         
         if file_type == 'Unknown':
             st.warning(f"This is  {file_type} type report,so this is generated report to it")
@@ -110,27 +172,24 @@ async def main_viz():
 
         with col2:
             st.info("Chat Below")
-            input_text = st.text_area("Enter your query")
+            
+            input_text = st.text_area(label = 'Enter your query:', placeholder = "Type here", label_visibility="collapsed")
             if input_text is not None:
-                if st.button("Chat with CSV"):
+                if st.button("Submit"):
                     result = await chat_with_file(input_text, last_uploaded_file_path)
                     if "response" in result:
                         st.success(result["response"])
                     else:
                         st.error(result.get("error", "Unknown error occurred"))
-            input_text2 = st.text_area("Enter your query for the plot")
+            
+            st.info("Chart Below")
+            input_text2 =st.text_area(label = 'Enter your query for the plot', placeholder = "Enter your query for the plot", label_visibility="collapsed")
             if input_text2 is not None:
-                if st.button("Build some chart"):
+                if st.button("Submit", key=2):
                     st.info("Plotting your Query: " + input_text2)
                     #result = build_some_chart(df, input_text2)
                     result = test_plot_maker(df, input_text2)
                     #st.success(result)
-
-        # directory_path = "exports/charts/"
-        if directory_contains_png_files(CHARTS_PATH):
-            with col1:
-                st.subheader("Generated Visualisation")
-                st.image(f'{CHARTS_PATH}temp_chart.png')
         
         if df.empty:
             st.warning("### This data report is empty - try downloading another one to get better visualizations")
@@ -490,9 +549,10 @@ async def main_viz():
             st.write(big_summary(last_uploaded_file_path))
             summary_lida(df)
             
-
+        
     else:
-        st.warning("No file has been uploaded or downloaded yet.")
+        
+        st.success("Update the page to get visualizations")
 
 
 def big_summary(file_path):
@@ -596,4 +656,5 @@ def summary_lida(df):
 
 
 if __name__ == "__main__":
+
     asyncio.run(main_viz())

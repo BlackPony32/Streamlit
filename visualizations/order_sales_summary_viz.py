@@ -34,19 +34,33 @@ def preprocess_data(data):
 def visualize_sales_trends(data, customer_col='Customer', product_col='Product name', 
                            grand_total_col='Grand total', qty_col='QTY'):
     tab1, tab2 = st.tabs(["Top Customers", "Monthly Trend"])
-
+    import plotly.graph_objects as go
     with tab1:
         st.subheader("Total Sales by Customer (Top 10)")
         top_customers = data.groupby(customer_col)[grand_total_col].sum().nlargest(10)
-        fig = px.bar(top_customers, 
-                       x=top_customers.index, 
-                       y=top_customers.values,
-                       title="Top 10 Customers by Sales Amount", 
-                       color=top_customers.values,
-                       color_continuous_scale='Bluyl')
-        fig.update_layout(xaxis_tickangle=45, 
-                          yaxis_title="Sales Amount", 
-                          xaxis_title="Customer")
+        # Create the plot
+        fig = go.Figure()
+        
+        fig.add_trace(go.Bar(
+            x=top_customers.index,
+            y=top_customers.values,
+            marker=dict(
+                color=top_customers.values,
+                colorscale='Bluyl'
+            ),
+            hovertemplate='<b>Customer:</b> %{x}<br><b>Sales Amount:</b> $%{y:.2f}<extra></extra>'
+        ))
+        
+        # Update the layout
+        fig.update_layout(
+            title="Top 10 Customers by Sales Amount",
+            xaxis_tickangle=45,
+            yaxis_title="Sales Amount",
+            xaxis_title="Customer",
+            coloraxis_colorbar=dict(title="Sales Amount")
+        )
+        
+        # Display the chart in Streamlit
         st.plotly_chart(fig)
 
         st.markdown("""
@@ -70,16 +84,26 @@ def visualize_sales_trends(data, customer_col='Customer', product_col='Product n
         monthly_sales = data.groupby(pd.Grouper(key='Created at', freq='M'))[grand_total_col].sum()
 
         # Create the plot
-        fig = px.line(
-            monthly_sales,
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
             x=monthly_sales.index,
             y=monthly_sales.values,
+            mode='lines+markers',
+            name='Sales Amount',
+            hovertemplate='<b>Month:</b> %{x}<br><b>Sales Amount:</b> $%{y:.2f}<extra></extra>'
+        ))
+        
+        # Update the layout
+        fig.update_layout(
             title="Monthly Sales Trend",
-            markers=True
+            xaxis_title="Month",
+            yaxis_title="Sales Amount",
+            hovermode='x unified'
         )
 
         # Update the layout
-        fig.update_layout(xaxis_title="Month", yaxis_title="Sales Amount")
+        #fig.update_layout(xaxis_title="Month", yaxis_title="Sales Amount")
         st.plotly_chart(fig)
         st.markdown("""
         ## Monthly Sales Trend Insights
@@ -141,73 +165,80 @@ def visualize_product_analysis(data, product_col='Product name', grand_total_col
 #_________________Discount Analysis Function (with Plotly)__________________________
 def visualize_discount_analysis(data, discount_type_col='Discount type', 
                                total_discount_col='Total invoice discount'):
-    tab1, tab2, tab3 = st.tabs(["Top Customers", "By Type", "Distribution"])
+    """Visualizes discount analysis by type and top customers."""
+
+    # Create tabs for different analyses
+    tab1, tab2 = st.tabs(["Top Customers", "By Type"])
 
     with tab2:
         st.subheader("Discount Amount by Type")
+        
+        # Group by discount type and sum the total discounts
         discount_amounts = data.groupby(discount_type_col)[total_discount_col].sum().sort_values(ascending=False)
-        fig = px.pie(discount_amounts, 
-                      values=discount_amounts.values, 
-                      names=discount_amounts.index,
-                      title="Distribution of Discount Amount by Type",
-                      color_discrete_sequence=px.colors.qualitative.Set3)
+        
+        # Create a pie chart for discount distribution by type
+        fig = px.pie(
+            discount_amounts, 
+            values=discount_amounts.values, 
+            names=discount_amounts.index,
+            title="Distribution of Discount Amount by Type",
+            color_discrete_sequence=px.colors.qualitative.Set3
+        )
         fig.update_traces(textposition='inside', textinfo='percent+label')
-        st.plotly_chart(fig)
+        
+        # Display the pie chart in Streamlit
+        st.plotly_chart(fig, use_container_width=True)
 
+        # Provide markdown explanation
         st.markdown("""
         ## Discount Type Insights
 
-        This pie chart shows which discount types are used most frequently and the proportion of total discounts they represent. This allows you to:
+        This pie chart shows the proportion of total discounts by type. It helps to:
 
-        * **Evaluate Discount Strategy:**  See which discount types are most impactful and whether your strategy is effective.
-        * **Compare Discount Options:**  Identify potential areas for optimization or experimentation with different types.
+        - **Evaluate Discount Strategy:** Identify which discount types are most impactful.
+        - **Compare Discount Options:** Spot areas for optimization or experimentation.
         """)
 
     with tab1:
         st.subheader("Discount Amount by Customer (Top 10)")
+        
+        # Group by customer and sum the total discounts, then get the top 10 customers
         top_customers_discount = data.groupby('Customer')[total_discount_col].sum().nlargest(10)
-        fig = px.bar(top_customers_discount, 
-                       x=top_customers_discount.index, 
-                       y=top_customers_discount.values,
-                       title="Discount Amount by Customer (Top 10)", 
-                       color=top_customers_discount.values,
-                       color_continuous_scale='Pinkyl')
-        fig.update_layout(xaxis_tickangle=45, 
-                          yaxis_title="Discount Amount", 
-                          xaxis_title="Customer")
-        st.plotly_chart(fig)
+        
+        # Create a bar chart for top customers by discount amount
+        fig = px.bar(
+            top_customers_discount, 
+            x=top_customers_discount.index, 
+            y=top_customers_discount.values,
+            title="Discount Amount by Customer (Top 10)", 
+            color=top_customers_discount.values,
+            color_continuous_scale='Pinkyl',
+            labels={'y': 'Discount Amount', 'x': 'Customer'}  # Update hover labels
+        )
+        fig.update_layout(
+            xaxis_tickangle=45, 
+            yaxis_title="Discount Amount", 
+            xaxis_title="Customer",
+            coloraxis_showscale=False  # Hide the color scale
+        )
+        
+        # Customize the hover data to exclude the color attribute
+        fig.update_traces(hovertemplate='<b>%{x}</b><br>Discount Amount: %{y}<extra></extra>')
+        
+        # Display the bar chart in Streamlit
+        st.plotly_chart(fig, use_container_width=True)
 
+        # Provide markdown explanation
         st.markdown("""
         ## Top Discount Recipients 
 
-        This chart highlights the customers receiving the highest total discounts. Use it to:
+        This chart shows the customers receiving the highest total discounts. It helps to:
 
-        * **Align with Customer Strategies:** Ensure discounts align with customer relationships and overall business goals.
-        * **Identify Negotiation Patterns:** Spot potential disparities or patterns that suggest specific customer agreements.
+        - **Align with Customer Strategies:** Ensure discounts align with business goals.
+        - **Identify Negotiation Patterns:** Spot disparities or patterns in customer agreements.
         """)
 
-    with tab3:
-        st.subheader("Distribution of Discount Amount by Type")
-        fig = px.box(data, 
-                      x=discount_type_col, 
-                      y=total_discount_col, 
-                      title="Distribution of Discount Amount by Type",
-                      color=discount_type_col,
-                      color_discrete_sequence=px.colors.qualitative.Pastel)
-        fig.update_layout(xaxis_tickangle=45, 
-                          yaxis_title="Discount Amount", 
-                          xaxis_title="Discount Type")
-        st.plotly_chart(fig)
-
-        st.markdown("""
-        ## Discount Distribution Analysis
-
-        This box plot shows the distribution of discount amounts for each discount type, revealing:
-
-        * **Range and Variability:**  Understand the range of discounts offered and their variability within each type.
-        * **Outlier Detection:**  Identify unusually high or low discounts that might require further investigation.
-        """)
-
+    
 # _________________Delivery Analysis Function (with Plotly)___________________________
 def visualize_delivery_analysis(data, delivery_status_col='Delivery status', 
                                delivery_method_col='Delivery methods'):

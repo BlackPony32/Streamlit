@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import numpy as np
+import plotly.graph_objects as go
 
 def preprocess_data(data):
     """
@@ -34,7 +35,7 @@ def preprocess_data(data):
 def visualize_sales_trends(data, customer_col='Customer', product_col='Product name', 
                            grand_total_col='Grand total', qty_col='QTY'):
     tab1, tab2 = st.tabs(["Top Customers", "Monthly Trend"])
-    import plotly.graph_objects as go
+
     with tab1:
         st.subheader("Total Sales by Customer (Top 10)")
         top_customers = data.groupby(customer_col)[grand_total_col].sum().nlargest(10)
@@ -122,12 +123,17 @@ def visualize_product_analysis(data, product_col='Product name', grand_total_col
     tab1, tab2 = st.tabs(["Total Sales", "Order Distribution"])
 
     with tab1:
-        fig = px.pie(product_data, 
-                      values='sum', 
-                      names=product_data.index,
-                      title="Total Sales by Product",
-                      color_discrete_sequence=px.colors.qualitative.Vivid)
-        fig.update_traces(textposition='inside', textinfo='percent+label')
+        fig = go.Figure(data=[go.Pie(
+            labels=product_data.index, 
+            values=product_data['sum'],
+            hovertemplate='<b>%{label}</b><br>Sales: $%{value:.2f}<br>Percentage: %{percent}<extra></extra>',
+            textinfo='percent+label'
+        )])
+        fig.update_layout(
+            title="Total Sales by Product",
+            colorway=px.colors.qualitative.Vivid,
+            title_x=0.5
+        )
         st.plotly_chart(fig)
 
         st.markdown("""
@@ -137,19 +143,24 @@ def visualize_product_analysis(data, product_col='Product name', grand_total_col
 
         * **Identify Top Performers:** Quickly see which products contribute the most to overall revenue.
         * **Prioritize Product Focus:** Determine where to concentrate marketing and sales efforts for maximum impact.
-        * **Analyze Performance Trends:**  Track changes in product sales contributions over time. 
+        * **Analyze Performance Trends:** Track changes in product sales contributions over time. 
         """)
 
     with tab2:
-        fig = px.bar(product_data, 
-                       x=product_data.index, 
-                       y='count', 
-                       title="Distribution of Orders by Product",
-                       color='count', 
-                       color_continuous_scale='Cividis')
-        fig.update_layout(xaxis_tickangle=45, 
-                          yaxis_title="Number of Orders", 
-                          xaxis_title="Product")
+        fig = go.Figure(data=[go.Bar(
+            x=product_data.index, 
+            y=product_data['count'],
+            hovertemplate='<b>%{x}</b><br>Orders: %{y}<extra></extra>',
+            marker_color=product_data['count'],
+            marker_colorscale='Cividis'
+        )])
+        fig.update_layout(
+            title="Distribution of Orders by Product",
+            xaxis_title="Product",
+            yaxis_title="Number of Orders",
+            xaxis_tickangle=45,
+            title_x=0.5
+        )
         st.plotly_chart(fig)
 
         st.markdown("""
@@ -159,12 +170,11 @@ def visualize_product_analysis(data, product_col='Product name', grand_total_col
 
         * **Product Popularity:** Identify products with high order volumes, indicating popularity or demand.
         * **Inventory Planning:** Use order volume to inform inventory management and prevent stock shortages for popular items. 
-        * **Performance Comparison:**  See which products have relatively low order numbers, which might suggest areas for improvement.
+        * **Performance Comparison:** See which products have relatively low order numbers, which might suggest areas for improvement.
         """)
 
 #_________________Discount Analysis Function (with Plotly)__________________________
-def visualize_discount_analysis(data, discount_type_col='Discount type', 
-                               total_discount_col='Total invoice discount'):
+def visualize_discount_analysis(data, discount_type_col='Discount type', total_discount_col='Total invoice discount'):
     """Visualizes discount analysis by type and top customers."""
 
     # Create tabs for different analyses
@@ -177,14 +187,17 @@ def visualize_discount_analysis(data, discount_type_col='Discount type',
         discount_amounts = data.groupby(discount_type_col)[total_discount_col].sum().sort_values(ascending=False)
         
         # Create a pie chart for discount distribution by type
-        fig = px.pie(
-            discount_amounts, 
-            values=discount_amounts.values, 
-            names=discount_amounts.index,
+        fig = go.Figure(data=[go.Pie(
+            labels=discount_amounts.index, 
+            values=discount_amounts.values,
+            hovertemplate='<b>%{label}</b><br>Discount Amount: $%{value:,.2f}<br>Percentage: %{percent}<extra></extra>',
+            textinfo='percent+label'
+        )])
+        fig.update_layout(
             title="Distribution of Discount Amount by Type",
-            color_discrete_sequence=px.colors.qualitative.Set3
+            colorway=px.colors.qualitative.Set3,
+            title_x=0.5
         )
-        fig.update_traces(textposition='inside', textinfo='percent+label')
         
         # Display the pie chart in Streamlit
         st.plotly_chart(fig, use_container_width=True)
@@ -206,24 +219,20 @@ def visualize_discount_analysis(data, discount_type_col='Discount type',
         top_customers_discount = data.groupby('Customer')[total_discount_col].sum().nlargest(10)
         
         # Create a bar chart for top customers by discount amount
-        fig = px.bar(
-            top_customers_discount, 
+        fig = go.Figure(data=[go.Bar(
             x=top_customers_discount.index, 
             y=top_customers_discount.values,
-            title="Discount Amount by Customer (Top 10)", 
-            color=top_customers_discount.values,
-            color_continuous_scale='Pinkyl',
-            labels={'y': 'Discount Amount', 'x': 'Customer'}  # Update hover labels
-        )
+            hovertemplate='<b>%{x}</b><br>Discount Amount: $%{y:,.2f}<extra></extra>',
+            marker=dict(color=top_customers_discount.values, colorscale='Pinkyl')
+        )])
         fig.update_layout(
+            title="Discount Amount by Customer (Top 10)", 
             xaxis_tickangle=45, 
             yaxis_title="Discount Amount", 
             xaxis_title="Customer",
+            title_x=0.5,
             coloraxis_showscale=False  # Hide the color scale
         )
-        
-        # Customize the hover data to exclude the color attribute
-        fig.update_traces(hovertemplate='<b>%{x}</b><br>Discount Amount: %{y}<extra></extra>')
         
         # Display the bar chart in Streamlit
         st.plotly_chart(fig, use_container_width=True)
@@ -241,19 +250,28 @@ def visualize_discount_analysis(data, discount_type_col='Discount type',
     
 # _________________Delivery Analysis Function (with Plotly)___________________________
 def visualize_delivery_analysis(data, delivery_status_col='Delivery status', 
-                               delivery_method_col='Delivery methods'):
+                                delivery_method_col='Delivery methods'):
     tab1, tab2 = st.tabs(["By Status", "By Method"])
     
     with tab1:
         st.subheader("Number of Orders by Delivery Status")
         delivery_status_counts = data[delivery_status_col].value_counts()
-        fig = px.pie(delivery_status_counts, 
-                      values=delivery_status_counts.values, 
-                      names=delivery_status_counts.index,
-                      title="Distribution of Orders by Delivery Status",
-                      color_discrete_sequence=px.colors.qualitative.Light24)
-        fig.update_traces(textposition='inside', textinfo='percent+label')
-        st.plotly_chart(fig)
+        
+        # Create a pie chart for delivery status distribution
+        fig = go.Figure(data=[go.Pie(
+            labels=delivery_status_counts.index, 
+            values=delivery_status_counts.values,
+            hovertemplate='<b>%{label}</b><br>Orders: %{value}<br>Percentage: %{percent}<extra></extra>',
+            textinfo='percent+label'
+        )])
+        fig.update_layout(
+            title="Distribution of Orders by Delivery Status",
+            colorway=px.colors.qualitative.Light24,
+            title_x=0.5
+        )
+        
+        # Display the pie chart in Streamlit
+        st.plotly_chart(fig, use_container_width=True)
 
         st.markdown("""
         ## Delivery Status Insights
@@ -267,13 +285,22 @@ def visualize_delivery_analysis(data, delivery_status_col='Delivery status',
     with tab2:
         st.subheader("Number of Orders by Delivery Method")
         delivery_method_counts = data[delivery_method_col].value_counts()
-        fig = px.pie(delivery_method_counts, 
-                      values=delivery_method_counts.values, 
-                      names=delivery_method_counts.index,
-                      title="Distribution of Orders by Delivery Method",
-                      color_discrete_sequence=px.colors.qualitative.Bold)
-        fig.update_traces(textposition='inside', textinfo='percent+label')
-        st.plotly_chart(fig)
+        
+        # Create a pie chart for delivery method distribution
+        fig = go.Figure(data=[go.Pie(
+            labels=delivery_method_counts.index, 
+            values=delivery_method_counts.values,
+            hovertemplate='<b>%{label}</b><br>Orders: %{value}<br>Percentage: %{percent}<extra></extra>',
+            textinfo='percent+label'
+        )])
+        fig.update_layout(
+            title="Distribution of Orders by Delivery Method",
+            colorway=px.colors.qualitative.Bold,
+            title_x=0.5
+        )
+        
+        # Display the pie chart in Streamlit
+        st.plotly_chart(fig, use_container_width=True)
 
         st.markdown("""
         ## Delivery Method Insights
@@ -284,24 +311,34 @@ def visualize_delivery_analysis(data, delivery_status_col='Delivery status',
         * **Operational Efficiency:** Are certain delivery methods used more frequently? This information can inform resource allocation and logistics planning. 
         """)
 
-
 # _________________Payment Analysis Function (with Plotly)___________________________
 def visualize_payment_analysis(data, payment_status_col='Payment status'):
     payment_status_counts = data[payment_status_col].value_counts()
 
-    fig = px.pie(payment_status_counts, 
-                  values=payment_status_counts.values, 
-                  names=payment_status_counts.index,
-                  title="Distribution of Orders by Payment Status",
-                  color_discrete_sequence=px.colors.qualitative.Pastel)
+    # Create a pie chart for payment status distribution
+    fig = go.Figure(data=[go.Pie(
+        labels=payment_status_counts.index, 
+        values=payment_status_counts.values,
+        hovertemplate='<b>%{label}</b><br>Orders: %{value}<br>Percentage: %{percent}<extra></extra>',
+        textinfo='percent+label'
+    )])
+    fig.update_layout(
+        title="Distribution of Orders by Payment Status",
+        colorway=px.colors.qualitative.Pastel,
+        title_x=0.5
+    )
 
-    fig.update_traces(textposition='inside', textinfo='percent+label') # Show percentage + label inside slices
-    st.plotly_chart(fig)
+    # Display the pie chart in Streamlit
+    st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("""
     ## Payment Status Insights
 
-    This chart shows the distribution of orders by payment status. Use it to identify payment processing issues, track payment trends, and gain insights into refund frequency.
+    This chart shows the distribution of orders by payment status. Use it to:
+
+    * **Identify Payment Processing Issues:** Spot any anomalies in payment status distribution.
+    * **Track Payment Trends:** Monitor changes in payment behavior over time.
+    * **Gain Insights into Refund Frequency:** Understand how often refunds are processed.
     """)
 
 # _________________Combined Analysis Function (with Plotly)___________________________
@@ -312,13 +349,24 @@ def visualize_combined_analysis(data, product_col='Product name',
     
     with tab1:
         st.subheader("Relationship between Quantity and Amount (by Product)")
-        fig = px.scatter(data, 
-                         x=qty_col, 
-                         y=grand_total_col, 
-                         color=product_col,
-                         title="Relationship between Quantity and Amount (by Product)",
-                         labels={"x": "Quantity", "y": "Sales Amount"})
-        fig.update_layout(xaxis_tickangle=45)
+        scatter_data = [
+            go.Scatter(
+                x=data[data[product_col] == product][qty_col], 
+                y=data[data[product_col] == product][grand_total_col],
+                mode='markers',
+                name=product,
+                text=data[data[product_col] == product][product_col],
+                hovertemplate='Quantity: %{x}<br>Sales Amount: %{y}<br>Product: %{text}<extra></extra>'
+            ) for product in data[product_col].unique()
+        ]
+        fig = go.Figure(data=scatter_data)
+        fig.update_layout(
+            title="Relationship between Quantity and Amount (by Product)",
+            xaxis_title="Quantity",
+            yaxis_title="Sales Amount",
+            xaxis_tickangle=45,
+            template="plotly_white"
+        )
         st.plotly_chart(fig)
 
         st.markdown("""
@@ -329,14 +377,24 @@ def visualize_combined_analysis(data, product_col='Product name',
 
     with tab2:
         st.subheader("Number of Orders by Product and Delivery Status")
-        fig = px.histogram(data, 
-                           x=product_col, 
-                           color=delivery_status_col,
-                           title="Number of Orders by Product and Delivery Status",
-                           labels={"x": "Product", "color": "Delivery Status"})
-        fig.update_layout(xaxis_tickangle=45, 
-                          yaxis_title="Number of Orders", 
-                          barmode='group')
+        histogram_data = [
+            go.Histogram(
+                x=data[data[delivery_status_col] == status][product_col],
+                name=status,
+                marker=dict(line=dict(width=0.5)),
+                hovertemplate='Product: %{x}<br>Number of Orders: %{y}<br>Delivery Status: %{text}<extra></extra>',
+                text=data[data[delivery_status_col] == status][delivery_status_col]
+            ) for status in data[delivery_status_col].unique()
+        ]
+        fig = go.Figure(data=histogram_data)
+        fig.update_layout(
+            title="Number of Orders by Product and Delivery Status",
+            xaxis_title="Product",
+            yaxis_title="Number of Orders",
+            barmode='group',
+            xaxis_tickangle=45,
+            template="plotly_white"
+        )
         st.plotly_chart(fig)
 
         st.markdown("""

@@ -3,6 +3,8 @@ import pandas as pd
 import streamlit as st
 import numpy as np
 from plotly.colors import sequential
+import plotly.graph_objects as go
+
 def preprocess_data(data):
     """
     Data preprocessing: data type conversion and cleaning.
@@ -35,19 +37,27 @@ def create_available_cases_plot(df):
     df['Available cases (QTY)'] = df['Available cases (QTY)'].astype(int)
     df['Color'] = df['Available cases (QTY)'].apply(lambda x: 'Out of Stock' if x < 0 else 'In Stock')
 
-    fig = px.scatter(df, 
-                      y='Product name', 
-                      x='Available cases (QTY)', 
-                      title='Available Cases (QTY)', 
-                      text='Available cases (QTY)',
-                      color='Color',  
-                      color_discrete_map={'Out of Stock': 'red', 'In Stock': 'green'})
+    fig = px.scatter(
+        df, 
+        y='Product name', 
+        x='Available cases (QTY)', 
+        title='Available Cases (QTY)', 
+        text='Available cases (QTY)',
+        color='Color',  
+        color_discrete_map={'Out of Stock': 'red', 'In Stock': 'green'}
+    )
 
-    fig.update_traces(textposition="top center")
-    fig.update_layout(xaxis_tickangle=45, 
-                      plot_bgcolor='white', 
-                      xaxis={'categoryorder':'total descending'},
-                      legend_title_text='Inventory Status')  # Set legend title
+    fig.update_traces(
+        textposition="top center",
+        hovertemplate="<b>Product:</b> %{y}<br><b>Available Cases (QTY):</b> %{x}<br><b>Inventory status</b> <extra></extra>"
+    )
+
+    fig.update_layout(
+        xaxis_tickangle=45, 
+        plot_bgcolor='white', 
+        xaxis={'categoryorder':'total descending'},
+        legend_title_text='Inventory Status'
+    )
 
     st.plotly_chart(fig)
 
@@ -69,14 +79,21 @@ def product_analysis_app(df):
     product_data = df.groupby('Product name')[['Total revenue', 'Cases sold']].sum()
 
     with tab1:
-        fig1 = px.pie(product_data, 
-                      values='Total revenue', 
-                      names=product_data.index,
-                      title="Total Revenue by Product", 
-                      hole=0.3, 
-                      color_discrete_sequence=px.colors.qualitative.Light24) # Use a vibrant color palette 
+        fig1 = px.pie(
+            product_data, 
+            values='Total revenue', 
+            names=product_data.index,
+            title="Total Revenue by Product", 
+            hole=0.3, 
+            color_discrete_sequence=px.colors.qualitative.Light24
+        )
 
-        fig1.update_traces(textposition='inside', textinfo='percent+label')
+        fig1.update_traces(
+            textposition='inside', 
+            textinfo='percent+label',
+            hovertemplate="<b>Product:</b> %{label}<br><b>Total Revenue:</b> %{value} $<br><b>Percentage:</b> %{percent}<extra></extra>"
+        )
+
         st.plotly_chart(fig1, use_container_width=True)
 
         st.markdown("""
@@ -90,12 +107,19 @@ def product_analysis_app(df):
         """)
 
     with tab2:
-        fig2 = px.funnel(product_data, 
-                          x='Cases sold', 
-                          y=product_data.index,
-                          title="Total Cases Sold by Product",
-                          color=product_data.index,
-                          color_discrete_sequence=px.colors.qualitative.Bold) # Use a bolder color palette
+        fig2 = px.funnel(
+            product_data, 
+            x='Cases sold', 
+            y=product_data.index,
+            title="Total Cases Sold by Product",
+            color=product_data.index,
+            color_discrete_sequence=px.colors.qualitative.Bold
+        )
+
+        fig2.update_traces(
+            hovertemplate="<b>Product:</b> %{y}<br><b>Cases Sold:</b> %{x}<extra></extra>"
+        )
+
         st.plotly_chart(fig2, use_container_width=True)
 
         st.markdown("""
@@ -108,20 +132,30 @@ def product_analysis_app(df):
         * **Identify Underperforming Products:**  See which products have low sales volumes and might require further analysis or adjustments in marketing or pricing. 
         """)
 
-def create_cases_revenue_relationship_plot(df):
-    fig = px.scatter(df, 
-                    x='Cases sold', 
-                    y='Total revenue', 
-                    color='Total revenue',
-                    title="Relationship between Cases Sold and Total Revenue",
-                    color_continuous_scale='Greens',
-                    size='Total revenue',  
-                    hover_data={'Product name': True, 'Cases sold': True, 'Total revenue': True}) # Include all relevant data on hover 
 
-    fig.update_traces(textposition='top center') # Position labels above the points
-    fig.update_layout(xaxis_title="Cases Sold", 
-                      yaxis_title="Total Revenue", 
-                      plot_bgcolor='white') 
+def create_cases_revenue_relationship_plot(df):
+    fig = px.scatter(
+        df, 
+        x='Cases sold', 
+        y='Total revenue', 
+        color='Total revenue',
+        title="Relationship between Cases Sold and Total Revenue",
+        color_continuous_scale='Greens',
+        size='Total revenue',  
+        hover_data={'Product name': True, 'Cases sold': True, 'Total revenue': True}
+    )
+
+    fig.update_traces(
+        textposition='top center',
+        hovertemplate="<b>Product:</b> %{customdata[0]}<br><b>Cases Sold:</b> %{x}<br><b>Total Revenue:</b> %{y} $<extra></extra>"
+    )
+
+    fig.update_layout(
+        xaxis_title="Cases Sold", 
+        yaxis_title="Total Revenue", 
+        plot_bgcolor='white'
+    )
+
     st.plotly_chart(fig)
 
     st.markdown("""
@@ -135,21 +169,30 @@ def create_cases_revenue_relationship_plot(df):
     """)
 
 
+
+import plotly.graph_objects as go
+import plotly.colors as colors
+from plotly.subplots import make_subplots
+
 def price_comparison_app(df):
     st.title("Average Price Comparison by Category")
     tab1, tab2 = st.tabs(["Wholesale Price", "Retail Price"])
     average_prices = df.groupby('Category name')[['Wholesale price', 'Retail price']].mean()
 
     with tab1:
-        fig1 = px.bar(average_prices, 
-                       x=average_prices.index, 
-                       y='Wholesale price',
-                       color=average_prices.index, 
-                       color_discrete_sequence=px.colors.qualitative.Pastel, 
-                       title="Average Wholesale Price by Category")
-        fig1.update_layout(xaxis_title="Category", 
-                          yaxis_title="Wholesale Price", 
-                          xaxis_tickangle=45)
+        fig1 = go.Figure(go.Bar(
+            x=average_prices.index,
+            y=average_prices['Wholesale price'],
+            marker_color=colors.qualitative.Pastel,
+            hovertemplate="<b>Category:</b> %{x}<br><b>Wholesale Price:</b> $%{y:.2f}<extra></extra>"
+        ))
+        fig1.update_layout(
+            title="Average Wholesale Price by Category",
+            xaxis_title="Category",
+            yaxis_title="Wholesale Price",
+            xaxis_tickangle=45,
+            hovermode="closest"
+        )
         st.plotly_chart(fig1, use_container_width=True)
 
         st.markdown("""
@@ -163,15 +206,19 @@ def price_comparison_app(df):
         """)
 
     with tab2:
-        fig2 = px.bar(average_prices, 
-                       x=average_prices.index, 
-                       y='Retail price',
-                       color=average_prices.index,  
-                       color_discrete_sequence=px.colors.qualitative.Pastel, 
-                       title="Average Retail Price by Category")
-        fig2.update_layout(xaxis_title="Category", 
-                          yaxis_title="Retail Price", 
-                          xaxis_tickangle=45)
+        fig2 = go.Figure(go.Bar(
+            x=average_prices.index,
+            y=average_prices['Retail price'],
+            marker_color=colors.qualitative.Pastel,
+            hovertemplate="<b>Category:</b> %{x}<br><b>Retail Price:</b> $%{y:.2f}<extra></extra>"
+        ))
+        fig2.update_layout(
+            title="Average Retail Price by Category",
+            xaxis_title="Category",
+            yaxis_title="Retail Price",
+            xaxis_tickangle=45,
+            hovermode="closest"
+        )
         st.plotly_chart(fig2, use_container_width=True)
 
         st.markdown("""
@@ -184,7 +231,6 @@ def price_comparison_app(df):
         * **Understand Consumer Affordability:** Gain insights into the affordability of products within each category based on average retail prices, informing marketing and sales strategies.
         """)
 
-
 def create_revenue_vs_profit_plot(df):
     st.title("Revenue Analysis")
     tab1, tab2 = st.tabs(["Revenue vs. Profit", "Revenue Breakdown by Category"])
@@ -192,33 +238,44 @@ def create_revenue_vs_profit_plot(df):
     category_revenue = df.groupby('Category name')['Total revenue'].sum()
     
     with tab1:
-        # Create a color map for products
-        product_colors = px.colors.qualitative.Plotly # You can choose other color palettes if you prefer
+        product_colors = colors.qualitative.Plotly
         product_color_map = {product: color for product, color in zip(df['Product name'].unique(), product_colors)}
 
-        fig1 = px.scatter(df, x='Total revenue', y='Profit', 
-                          hover_name='Product name', 
-                          color='Product name', # Color points by product
-                          color_discrete_map=product_color_map, # Use the defined color map
-                          title="Total Revenue vs. Profit per Product")
-        fig1.update_layout(xaxis_title="Total Revenue", yaxis_title="Profit")
+        fig1 = go.Figure(go.Scatter(
+            x=df['Total revenue'],
+            y=df['Profit'],
+            mode='markers',
+            marker=dict(
+                color=[product_color_map[product] for product in df['Product name']],
+                size=10
+            ),
+            text=df['Product name'],
+            hovertemplate="<b>Product:</b> %{text}<br><b>Revenue:</b> $%{x:.2f}<br><b>Profit:</b> $%{y:.2f}<extra></extra>"
+        ))
+        fig1.update_layout(
+            title="Total Revenue vs. Profit per Product",
+            xaxis_title="Total Revenue",
+            yaxis_title="Profit",
+            hovermode="closest"
+        )
         st.plotly_chart(fig1, use_container_width=True)
         st.markdown("""## The Relationship Between Total Revenue and Profit for Different Products
-*Visualizing the relationship between total revenue and profit for different products offers a powerful tool for businesses to assess product performance and profitability.  This allows for the identification of high-performing products, the detection of potential issues,and the discovery of trends, ultimately facilitating strategic decision-making regarding pricing, cost management, and marketing efforts.* """)
-    with tab2:
-        fig2 = px.pie(category_revenue, 
-                      values=category_revenue.values, 
-                      names=category_revenue.index, 
-                      color=category_revenue.index, # Color slices by category
-                      color_discrete_sequence=px.colors.qualitative.Vivid, # Choose your preferred color palette
-                      title="Revenue Breakdown by Category",
-                      hole=0.3) # Create a donut chart with a hole in the center
-        
-        fig2.update_traces(
-            textposition='inside', # Show labels inside the slices
-            textinfo='percent+label'  # Show percentage and label
-        )
+*Visualizing the relationship between total revenue and profit for different products offers a powerful tool for businesses to assess product performance and profitability. This allows for the identification of high-performing products, the detection of potential issues, and the discovery of trends, ultimately facilitating strategic decision-making regarding pricing, cost management, and marketing efforts.* """)
 
+    with tab2:
+        fig2 = go.Figure(go.Pie(
+            values=category_revenue.values,
+            labels=category_revenue.index,
+            hole=0.3,
+            marker=dict(colors=colors.qualitative.Vivid),
+            textposition='inside',
+            textinfo='percent+label',
+            hovertemplate="<b>Category:</b> %{label}<br><b>Revenue:</b> $%{value:.2f}<br><b>Percentage:</b> %{percent}<extra></extra>"
+        ))
+        fig2.update_layout(
+            title="Revenue Breakdown by Category",
+            hovermode="closest"
+        )
         st.plotly_chart(fig2, use_container_width=True)
         st.markdown("""## Distribution of Revenue Across Different Categories
 *Pie charts offer a powerful way to visualize revenue distribution across different categories, providing insights into the proportion each category contributes to the total. By highlighting the largest slices, businesses can quickly identify their key revenue drivers and make strategic decisions based on this understanding. This visual comparison of categories also facilitates tracking changes in revenue distribution over time, informing businesses about shifting consumer preferences and market trends.*""")

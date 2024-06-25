@@ -2,6 +2,7 @@ import plotly.express as px
 import pandas as pd
 import streamlit as st
 import numpy as np
+import plotly.graph_objects as go
 
 def preprocess_data(data):
     """
@@ -40,69 +41,97 @@ def customer_analysis_app(df):
     with tab1:
         st.subheader("Top 10 Customers")
         top_10_customers = df.groupby('Name')['Total sales'].sum().nlargest(10).reset_index()
-        fig = px.bar(
-        top_10_customers, 
-        x='Name',  # Use the 'Name' column for the x-axis
-        y='Total sales', 
-        title="Top 10 Customers by Total Sales",
-        template="plotly_white",
-        color='Name',  # Assign color based on the 'Name' column
-        color_discrete_sequence=px.colors.qualitative.Light24
+
+        fig = go.Figure(data=go.Bar(
+            x=top_10_customers['Name'],
+            y=top_10_customers['Total sales'],
+            marker_color=px.colors.qualitative.Light24,
+            text=top_10_customers['Total sales'].apply(lambda x: f'${x:,.2f}'),
+            textposition='outside',
+            hovertemplate='<b>Customer:</b> %{x}<br><b>Total Sales:</b> $%{y:,.2f}<extra></extra>'
+        ))
+        fig.update_layout(
+            title="Top 10 Customers by Total Sales",
+            xaxis_title="Customer",
+            yaxis_title="Total Sales",
+            template="plotly_white",
+            height=550  # Set the height of the plot
     )
-        fig.update_layout(xaxis_title="Customer", yaxis_title="Total Sales")
-        st.plotly_chart(fig)
+        st.plotly_chart(fig, use_container_width=True)
 
     with tab2:
         st.subheader("Sales by Territory")
-        territory_sales = df.groupby('Territory')['Total sales'].sum()
-        fig = px.pie(
-            territory_sales, 
-            values=territory_sales.values, 
-            names=territory_sales.index, 
+        territory_sales = df.groupby('Territory')['Total sales'].sum().reset_index()
+
+        fig = go.Figure(data=go.Pie(
+            labels=territory_sales['Territory'],
+            values=territory_sales['Total sales'],
+            hole=0.3,
+            marker=dict(colors=px.colors.qualitative.Pastel),
+            hovertemplate='<b>Territory:</b> %{label}<br><b>Total Sales:</b> $%{value:,.2f}<br><b>Percentage:</b> %{percent}<extra></extra>',
+            textinfo='percent+label'
+        ))
+        fig.update_layout(
             title="Sales Distribution by Territory",
-            color_discrete_sequence=px.colors.qualitative.Pastel,
-            hole=0.3 
-        )
-        fig.update_traces(textposition='inside', textinfo='percent+label')
-        st.plotly_chart(fig)
+        height=550  # Set the height of the plot
+    )
+        st.plotly_chart(fig, use_container_width=True)
 
     with tab3:
         st.subheader("Sales by Payment Terms")
-        payment_terms_sales = df.groupby('Payment terms')['Total sales'].sum()
-        fig = px.bar(
-            payment_terms_sales, 
-            x=payment_terms_sales.index, 
-            y=payment_terms_sales.values, 
+        payment_terms_sales = df.groupby('Payment terms')['Total sales'].sum().reset_index()
+
+        fig = go.Figure(data=go.Bar(
+            x=payment_terms_sales['Payment terms'],
+            y=payment_terms_sales['Total sales'],
+            marker_color=px.colors.qualitative.Pastel,
+            text=payment_terms_sales['Total sales'].apply(lambda x: f'${x:,.2f}'),
+            textposition='outside',
+            hovertemplate='<b>Payment Terms:</b> %{x}<br><b>Total Sales:</b> $%{y:,.2f}<extra></extra>'
+        ))
+        fig.update_layout(
             title="Sales Distribution by Payment Terms",
+            xaxis_title="Payment Terms",
+            yaxis_title="Total Sales",
             template="plotly_white",
-            color_discrete_sequence=px.colors.qualitative.Pastel
-        )
-        fig.update_layout(xaxis_title="Payment Terms", yaxis_title="Total Sales")
-        st.plotly_chart(fig)
+            height=550  # Set the height of the plot
+    )
+        st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("""
     ## Understanding Customer Behavior: Sales Insights
 
-    This dashboard provides an overview of customer sales patterns, focusing on your top-performing customers, sales distribution across different territories, and a breakdown of sales by payment terms.  Use this information to identify key customer segments, optimize sales strategies, and improve cash flow management.
+    This dashboard provides an overview of customer sales patterns, focusing on your top-performing customers, sales distribution across different territories, and a breakdown of sales by payment terms. Use this information to identify key customer segments, optimize sales strategies, and improve cash flow management.
     """)
-
 #--------------------------bar_plot_with_percentages- SUB FUNCTION-------------------------------------
 def create_bar_plot_with_percentages(df, col="Payment terms"):
     counts = df[col].value_counts().sort_values(ascending=False)
     percentages = (counts / len(df)) * 100
     df_plot = pd.DataFrame({'Category': counts.index, 'Count': counts.values, 'Percentage': percentages})
 
-    fig = px.bar(
-        df_plot, 
-        x='Category', 
-        y='Count', 
-        text='Percentage', 
+    fig = go.Figure(data=go.Bar(
+        x=df_plot['Category'],
+        y=df_plot['Count'],
+        marker_color=px.colors.qualitative.Pastel,
+        text=df_plot['Percentage'].apply(lambda x: f'{x:.1f}%'),
+        textposition='outside',
+        hovertemplate='<b>Category:</b> %{x}<br><b>Count:</b> %{y}<br><b>Percentage:</b> %{text}<extra></extra>'
+    ))
+    
+    fig.update_layout(
         title=f"Distribution by {col.title()}",
+        xaxis_title=col.title(),
+        yaxis_title="Count",
         template="plotly_white",
-        color_discrete_sequence=px.colors.qualitative.Pastel)
-    fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-    fig.update_layout(uniformtext_minsize=8, uniformtext_mode='hide', title_x=0.5)
+        title_x=0.5,
+        uniformtext_minsize=8,
+        uniformtext_mode='hide',
+        height=550  # Set the height of the plot
+    )
+        
+    
     return fig
+
 def interactive_bar_plot_app(df):
     st.title("Distribution Analysis") # More concise title
 
@@ -115,9 +144,8 @@ def interactive_bar_plot_app(df):
     st.markdown("""
     ## Understanding Distribution Patterns
 
-    This interactive bar chart allows you to analyze the distribution of data across different categories within your dataset.  Explore various categorical columns to uncover patterns, identify dominant categories, and gain insights into the composition of your data. 
+    This interactive bar chart allows you to analyze the distribution of data across different categories within your dataset. Explore various categorical columns to uncover patterns, identify dominant categories, and gain insights into the composition of your data. 
     """)
-
 #Data distribution visualization
 def create_non_zero_sales_grouped_plot(df, sales_col='Total sales', threshold=500):
     df_filtered = df[df[sales_col] > 0]
@@ -129,30 +157,56 @@ def create_non_zero_sales_grouped_plot(df, sales_col='Total sales', threshold=50
     counts = counts_below.values.tolist() + [count_above]
     df_plot = pd.DataFrame({'Sales Value': values, 'Count': counts})
 
-    fig = px.line(
-        df_plot, 
-        x='Sales Value', 
-        y='Count', 
-        markers=True, 
-        title="Distribution of Non-Zero Total Sales",
-        template="plotly_white",
-        color_discrete_sequence=px.colors.qualitative.Pastel
-    )
+    fig = go.Figure(data=go.Scatter(
+        x=df_plot['Sales Value'],
+        y=df_plot['Count'],
+        mode='lines+markers',
+        marker=dict(color='blue'),
+        line=dict(color='blue'),
+        text=df_plot['Count'],
+        hovertemplate='<b>Sales Value:</b> %{x}<br><b>Count:</b> %{y}<extra></extra>'
+    ))
     
     fig.update_layout(
-        title_x=0.5, 
+        title="Distribution of Non-Zero Total Sales",
+        title_x=0, 
         xaxis_title="Value of Total Sales", 
-        yaxis_title="Number of Entries"
+        yaxis_title="Number of Entries",
+        template="plotly_white"
     )
+    
     st.plotly_chart(fig)
 
     st.markdown("""
     ## Sales Distribution: Identifying Patterns and Outliers
 
-    This line chart illustrates the distribution of non-zero total sales values, providing a visual representation of sales frequencies.  Analyze the shape of the line to identify common sales value ranges, potential outliers (sudden spikes or drops), and gain a better understanding of the overall sales distribution.
+    This line chart illustrates the distribution of non-zero total sales values, providing a visual representation of sales frequencies. Analyze the shape of the line to identify common sales value ranges, potential outliers (sudden spikes or drops), and gain a better understanding of the overall sales distribution.
     """)
 
 #Distribution of customer groups by city
+def create_bar_plot_with_legend(df, city_col, group_col, title):
+    grouped_data = df.groupby([city_col, group_col]).size().unstack().fillna(0)
+    data = [
+        go.Bar(
+            x=grouped_data.index,
+            y=grouped_data[group],
+            name=group,
+            hovertemplate='<b>City:</b> %{x}<br><b>Group:</b> ' + group + '<br><b>Count:</b> %{y}<extra></extra>'
+        ) for group in grouped_data.columns
+    ]
+
+    fig = go.Figure(data=data)
+    fig.update_layout(
+        title=title,
+        xaxis_title="City",
+        yaxis_title="Number of Clients",
+        barmode='group',
+        template="plotly_white",
+        legend_title_text="Group",
+        title_x=0
+    )
+    return fig
+
 def interactive_group_distribution_app(df, group_col='Group', city_col='Billing city'):
     st.title("Customer Group Distribution")  # Concise title
 
@@ -164,29 +218,11 @@ def interactive_group_distribution_app(df, group_col='Group', city_col='Billing 
     tab1, tab2 = st.tabs(["All Cities", f"Excluding {most_frequent_city}"])
 
     with tab1:
-        fig1 = px.bar(
-            data_all_cities, 
-            x=city_col, 
-            color=group_col, 
-            barmode='group', 
-            title="Client Group Distribution by City",
-            template="plotly_white",
-            color_discrete_sequence=px.colors.qualitative.Pastel
-        )
-        fig1.update_layout(xaxis_title="City", yaxis_title="Number of Clients", legend_title_text="Group")
+        fig1 = create_bar_plot_with_legend(data_all_cities, city_col, group_col, "Client Group Distribution by City")
         st.plotly_chart(fig1, use_container_width=True)
 
     with tab2:
-        fig2 = px.bar(
-            data_without_frequent_city, 
-            x=city_col, 
-            color=group_col, 
-            barmode='group', 
-            title=f"Client Group Distribution (Excluding {most_frequent_city})",
-            template="plotly_white",
-            color_discrete_sequence=px.colors.qualitative.Pastel
-        )
-        fig2.update_layout(xaxis_title="City", yaxis_title="Number of Clients", legend_title_text="Group")
+        fig2 = create_bar_plot_with_legend(data_without_frequent_city, city_col, group_col, f"Client Group Distribution (Excluding {most_frequent_city})")
         st.plotly_chart(fig2, use_container_width=True)
 
     st.markdown("""

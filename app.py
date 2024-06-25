@@ -27,9 +27,11 @@ from visualizations import (
     low_stock_inventory_viz, current_inventory_viz, top_customers_viz, customer_details_viz
 )
 from side_func import identify_file, get_file_name, get_csv_columns
-#from main import file_name
+from streamlit_autorefresh import st_autorefresh
+st.set_page_config(page_title="AI analyze", layout="wide")
+st_autorefresh(5000)
 load_dotenv()
-st.set_page_config(layout="wide")
+
 
 CHARTS_PATH = "exports/charts/"
 UPLOAD_DIR = "uploads"
@@ -119,7 +121,6 @@ def fetch_file_info():
 
 
 def ready_file():
-    cleanup_uploads_folder(UPLOAD_DIR)
     result = fetch_file_info()
     url = result.get("url")
     file_name = result.get("file_name")
@@ -148,9 +149,12 @@ def ready_file():
     
     convert_excel_to_csv(excel_file_path)
 
+cleanup_uploads_folder(UPLOAD_DIR)
+ready_file()
+
 
 async def main_viz():
-    ready_file()
+    
 
     st.title("Report Analysis")
     
@@ -218,10 +222,10 @@ async def main_viz():
                 
             with cc2:
                 columns = get_csv_columns(last_uploaded_file_path)
-                if "Discount type" in columns and "Total invoice discount" in columns:
-                    third_party_sales_viz.visualize_discount_analysis(df)
-                else:
-                    st.warning("There is no Discount type or Total invoice discount, so visualizing can not be ready")
+                #if "Discount type" in columns and "Total invoice discount" in columns:
+                #    third_party_sales_viz.visualize_discount_analysis(df)
+                #else:
+                #    st.warning("There is no Discount type or Total invoice discount, so visualizing can not be ready")
                 # line_chart_plotly()
                 if "Discount type" in columns:
                     third_party_sales_viz.analyze_discounts(df)

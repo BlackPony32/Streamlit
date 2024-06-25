@@ -44,15 +44,6 @@ file_name = get_file_name()
 last_uploaded_file_path = os.path.join(UPLOAD_DIR, file_name)
 
 
-def cleanup_uploads_folder(upload_dir: str):
-    try:
-        for filename in os.listdir(upload_dir):
-            file_path = os.path.join(upload_dir, filename)
-            if os.path.isfile(file_path):
-                os.unlink(file_path)
-    except Exception as e:
-        logging.error(f"Error cleaning up uploads folder: {str(e)}")
-
 def convert_excel_to_csv(excel_file_path):
     try:
         df = pd.read_excel(excel_file_path)
@@ -109,9 +100,20 @@ def chat_with_agent(input_string, file_path):
     except Exception as e:
         raise ValueError(f"An error occurred: {str(e)}")
 
+def cleanup_uploads_folder(upload_dir: str):
+    try:
+        for filename in os.listdir(upload_dir):
+            file_path = os.path.join(upload_dir, filename)
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+    except Exception as e:
+        logging.error(f"Error cleaning up uploads folder: {str(e)}")
+
 def fetch_file_info():
     try:
-        response = requests.get("https://fastapi-2y3qx63wua-uc.a.run.app/get_file_info/")
+        #response = requests.get("https://fastapi-2y3qx63wua-uc.a.run.app/get_file_info/")
+        response = requests.get("http://127.0.0.1:8000/get_file_info/")
+        
         response.raise_for_status()  # Raise an exception for HTTP errors
         data = response.json()
         return data
@@ -122,10 +124,11 @@ def fetch_file_info():
 
 def ready_file():
     result = fetch_file_info()
+    if result is None:
+        return
+    
     url = result.get("url")
     file_name = result.get("file_name")
-
-    
 
     report_type_filenames = {
         'CUSTOMER_DETAILS': 'customer_details.xlsx',
@@ -139,18 +142,30 @@ def ready_file():
         'REP_DETAILS': 'rep_details.xlsx',
         'REPS_SUMMARY': 'reps_summary.xlsx',
     }
+    
     response = requests.get(url, stream=True)
     response.raise_for_status()
     friendly_filename = report_type_filenames.get(file_name, 'unknown.xlsx')
     excel_file_path = os.path.join(UPLOAD_DIR, friendly_filename)
+    
     with open(excel_file_path, "wb") as file:
-            for chunk in response.iter_content(chunk_size=8192):
-                file.write(chunk)
+        for chunk in response.iter_content(chunk_size=8192):
+            file.write(chunk)
     
     convert_excel_to_csv(excel_file_path)
+    st.session_state.file_ready = True
+    
 
-cleanup_uploads_folder(UPLOAD_DIR)
-ready_file()
+# Initialize session state if not already done
+if "file_ready" not in st.session_state:
+    st.session_state.file_ready = False
+
+# Check and perform file cleanup and fetching if not done already
+if not st.session_state.file_ready:
+    cleanup_uploads_folder(UPLOAD_DIR)
+    ready_file()
+else:
+    st.write("File already fetched and processed.")
 
 
 async def main_viz():
